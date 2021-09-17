@@ -1,0 +1,214 @@
+****Start
+#Text Adventure Plus!
+[[New Game->PickName]]
+{<!-- Load Game if it exists -->
+(if: (saved-games:) contains "SlotA")[
+	(link: "Load Game")[(load-game: "SlotA")]
+]}
+<!-- Level used for Player, Monsters and Shop -->
+(set: $level to 1)
+<!-- Player datamap containing player attributes -->
+(set: $player to
+	(dm: 
+		"name", 	"Greg",
+		"class",	"knight",
+		"maxHP",    10,
+		"health", 	10,
+		"attack", 	1,
+		"strength", 1,
+		"defence",	1
+	)
+)
+<!-- Array of enemy data maps -->
+(set: $enemyIndex to 1)
+(set: $enemyArray to
+	(a:
+		(dm:
+			"index", 	1,
+			"name", 	"giant rat",
+			"location", "sewers",
+			"maxHP",    4,
+			"health", 	4,
+			"attack", 	1,
+			"strength", 1,
+			"defence",	0
+		),
+		(dm:
+			"index", 	2,
+			"name", 	"goblin",
+			"location", "ruins",
+			"maxHP",    7,
+			"health", 	7,
+			"attack", 	2,
+			"strength", 1,
+			"defence",	1
+		),
+		(dm:
+			"index", 	3,
+			"name", 	"wolf",
+			"location", "tundra",
+			"maxHP",    15,
+			"health", 	15,
+			"attack", 	7,
+			"strength", 4,
+			"defence",	5
+		),
+		(dm:
+			"index", 	4,
+			"name", 	"bear",
+			"location", "forest",
+			"maxHP",    25,
+			"health", 	25,
+			"attack", 	7,
+			"strength", 7,
+			"defence",	5
+		),
+		(dm:
+			"index", 	5,
+			"name", 	"dragon",
+			"location", "evil lair",
+			"maxHP",    40,
+			"health", 	40,
+			"attack", 	10,
+			"strength", 7,
+			"defence",	10
+		)
+	)
+)
+
+---------------------------------------------------------------------------------------
+
+****PickName
+##{<!-- Get player input -->
+Please enter your name}
+(input-box: bind $player's name, "XXX=")
+
+[[Next->PickClass]]
+(link: "Back")[(undo:)]
+
+---------------------------------------------------------------------------------------
+
+****PickClass
+##Pick a class
+###{<!-- Cycle through classes (knight, barbarian, thief) -->
+(cycling-link: bind $player's class, "knight", "barbarian", "thief")}
+
+
+****ConfirmCharacter
+[[Next->ConfirmCharacter]]
+(link: "Back")[(undo:)]
+##Do you like this name and class?
+###''Name:'' (print: $player's name)
+###''Class:'' (print: $player's class)
+[[Next->GameMenu]]
+(link: "Back")[(undo:)]
+
+---------------------------------------------------------------------------------------
+
+****GameMenu
+###{<!-- Header for game menu -->
+(print: $player's name) the (print: $player's class)
+}
+Health: (print: $player's health) / (print: $player's maxHP)
+Attack: (print: $player's attack)
+Strength: (print: $player's strength)
+Defence: (print: $player's defence)
+---
+####What would you like to do?
+---
+{<!-- Regain health up to maximum hitpoints -->
+(if: $player's health < $player's maxHP)[
+	(link: "Rest")[
+		(set: $player's health to (min: $player's maxHP, $player's health + 10))
+		(goto: "GameMenu")
+	]
+]\
+(else:)[
+	~~Rest~~
+]}
+[[Adventure->Adventure]]
+{<!-- Save game with this link -->
+(link: "Save")[
+	(alert: "Game is saved")
+	(save-game: "SlotA")
+]}
+{<!-- Quit, go back to Start -->
+[[Quit->Start]]}
+
+---------------------------------------------------------------------------------------
+
+****Adventure
+{<!-- Show each location for each enemy in enemy array -->
+##Choose where you want to adventure.
+(for: each _enemy, ...$enemyArray)[
+	(link: _enemy's location)[
+		(set: $enemyIndex to _enemy's index)
+		(goto: "FightStart")
+	]
+]
+
+---------------------------------------------------------------------------------------
+
+****FightStart
+##As you adventure in the (print: $enemyArray's $enemyIndex's location) you find a (print: $enemyArray's $enemyIndex's name). What will you do?
+[[Attack->Fight]]
+[[Run->GameMenu]]
+
+---------------------------------------------------------------------------------------
+
+****
+###{<!-- Roll randomly for hit/miss -->
+(set: _enemyRoll to (random: 0,7))
+(set: _playerRoll to (random: 0, 10))
+Battle}
+{<!-- See if you hit -->
+(if: _playerRoll + $player's attack >= $enemyArray's $enemyIndex's defence)[
+	You hit the (print: $enemyArray's $enemyIndex's name) for (print: $player's strength) damage.
+	(set: $enemyArray's $enemyIndex's health to $enemyArray's $enemyIndex's health - $player's strength)
+]\
+(else:)[
+	You missed the (print: $enemyArray's $enemyIndex's name).
+]}
+{<!-- See if enemy hits you -->
+(if: (_enemyRoll + $enemyArray's $enemyIndex's attack) >= $player's defence)[
+	The (print: $enemyArray's $enemyIndex's name) hits you for (print: $enemyArray's $enemyIndex's strength) damage.
+	(set: $player's health to $player's health - $enemyArray's $enemyIndex's strength)
+]\
+(else:)[
+	The (print: $enemyArray's $enemyIndex's name) missed you with their attack.
+]}
+Player HP: (print: $player's health)
+Enemy HP: (print: $enemyArray's $enemyIndex's health)
+[[Attack->Fight]]
+{<!-- If you run the monster heals -->
+(link: "Run")[
+	(set: $enemyArray's $enemyIndex's health to $enemyArray's $enemyIndex's maxHP)
+	(goto: "GameMenu")	
+]}
+{<!-- Win/Loss conditions -->
+(if: $player's health <= 0)[
+	(goto: "Loss")
+]\
+(else-if: $enemyArray's $enemyIndex's health <= 0)[
+	(goto: "Win")
+]}
+
+---------------------------------------------------------------------------------------
+
+****Loss
+###Oh no you died...
+[[Menu->Start]]
+
+---------------------------------------------------------------------------------------
+
+****Win
+###You killed the (print: $enemyArray's $enemyIndex's name). You gain stats based on the enemies difficulty.
+[[Continue->GameMenu]]
+{<!-- Level Up -->
+(set: $level to $level + $enemyIndex)
+(set: $player's maxHP to $player's maxHP + 2*$enemyIndex)
+(set: $player's attack to $player's attack + $enemyIndex)
+(set: $player's strength to $player's strength + $enemyIndex)
+(set: $player's defence to $player's defence + $enemyIndex)}
+{<!-- Reset monster's hp -->
+(set: $enemyArray's $enemyIndex's health to $enemyArray's $enemyIndex's maxHP)}
